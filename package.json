@@ -1,5 +1,5 @@
 {
-  "name": "twirp-ts",
+  "name": "@jeffreylo/twirp-ts",
   "version": "2.3.4",
   "description": "Typescript implementation of the Twirp protocol",
   "main": "build/twirp/index.js",
@@ -7,7 +7,7 @@
     "protoc-gen-twirp_ts": "./protoc-gen-twirp_ts"
   },
   "repository": {
-    "url": "https://github.com/hopin-team/twirp-ts"
+    "url": "https://github.com/jeffreylo/twirp-ts"
   },
   "scripts": {
     "test": "jest",
@@ -44,5 +44,8 @@
   "peerDependencies": {
     "@protobuf-ts/plugin": "^2.0.0-alpha.27",
     "ts-proto": "^1.81.3"
-  }
+  },
+  "publishConfig": {
+     "@jeffreylo:registry": "https://npm.pkg.github.com"
+   }
 }
