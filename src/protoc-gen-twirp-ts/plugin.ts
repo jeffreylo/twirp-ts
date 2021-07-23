@@ -6,7 +6,7 @@ import {
   SymbolTable,
 } from "@protobuf-ts/plugin-framework";
 import { File } from "./file";
-import { generate } from "./gen/twirp";
+import { generateClient, generateServer } from "./gen/twirp";
 import { genGateway } from "./gen/gateway";
 import { createLocalTypeName } from "./local-type-name";
 import { Interpreter } from "./interpreter";
@@ -32,7 +32,13 @@ export class ProtobuftsPlugin extends PluginBase<File> {
     },
     openapi_gateway: {
       description: "Generates an OpenAPI spec for gateway handlers"
-    }
+    },
+    disable_client_generation: {
+      description: "Disable client code generation"
+    },
+    disable_server_generation: {
+      description: "Disable server code generation"
+    },
   }
 
   async generate(request: CodeGeneratorRequest): Promise<File[]> {
@@ -60,11 +66,21 @@ export class ProtobuftsPlugin extends PluginBase<File> {
         ctx.symbols.register(createLocalTypeName(descriptor, registry), descriptor, messageFileOut);
       });
 
-      // Twirp generation
-      const twirpFileOut = new File(`${fileDescriptor.name?.replace(".proto", "").toLowerCase()}.twirp.ts`);
-      const twirpContent = await generate(ctx, fileDescriptor);
-      twirpFileOut.setContent(twirpContent);
-      files.push(twirpFileOut);
+      // Twirp server generation
+			if (!params.disable_server_generation) {
+				const twirpFileOut = new File(`${fileDescriptor.name?.replace(".proto", "").toLowerCase()}.twirp.ts`);
+				const twirpContent = await generateServer(ctx, fileDescriptor);
+				twirpFileOut.setContent(twirpContent);
+				files.push(twirpFileOut);
+			}
+
+			// Twirp client generation
+			if (!params.disable_client_generation) {
+				const twirpClientFileOut = new File(`${fileDescriptor.name?.replace(".proto", "").toLowerCase()}.twirp-client.ts`);
+				const twirpClientContent = await generateClient(ctx, fileDescriptor);
+				twirpClientFileOut.setContent(twirpClientContent);
+				files.push(twirpClientFileOut);
+			}
     }
 
     // Gateway generation

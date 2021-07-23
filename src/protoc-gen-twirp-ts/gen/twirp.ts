@@ -13,17 +13,28 @@ const TwirpError = imp("TwirpError@twirp-ts");
 const TwirpErrorCode = imp("TwirpErrorCode@twirp-ts");
 
 /**
- * Generates the server and client implementation
+ * Generates the client implementation
  * of the twirp specification
  * @param ctx
  * @param file
  */
-export async function generate(ctx: any, file: FileDescriptorProto) {
+export async function generateClient(ctx: any, file: FileDescriptorProto) {
     const contents = file.service.map((service) => {
-        return joinCode([
-            genClient(ctx, file, service),
-            genServer(ctx, file, service)
-        ], { on: "\n\n" })
+        return joinCode([genClient(ctx, file, service)], { on: "\n\n" })
+    });
+
+    return joinCode(contents, { on: "\n\n"}).toStringWithImports();
+}
+
+/**
+ * Generates the server implementation
+ * of the twirp specification
+ * @param ctx
+ * @param file
+ */
+export async function generateServer(ctx: any, file: FileDescriptorProto) {
+    const contents = file.service.map((service) => {
+        return joinCode([genServer(ctx, file, service)], { on: "\n\n" })
     });
 
     return joinCode(contents, { on: "\n\n"}).toStringWithImports();
@@ -34,7 +45,7 @@ function genClient(ctx: any, file: FileDescriptorProto, service: ServiceDescript
         //==================================//
         //          Client Code             //
         //==================================//
-        
+
         interface Rpc {
           request(
             service: string,
@@ -43,9 +54,9 @@ function genClient(ctx: any, file: FileDescriptorProto, service: ServiceDescript
             data: object | Uint8Array,
           ): Promise<object | Uint8Array>;
         }
-        
+
         ${genTwirpClientInterface(ctx, file, service)}
-        
+
         ${genTwripClientJSONImpl(ctx, file, service)}
         ${genTwripClientProtobufImpl(ctx, file, service)}
     `
@@ -61,7 +72,7 @@ function genTwirpClientInterface(ctx: any, file: FileDescriptorProto, service: S
     return code`
         export interface ${service.name}Client {
             ${joinCode(methods, { on: "\n"})}
-        }   
+        }
     `
 }
 
@@ -172,11 +183,11 @@ function genTwirpService(ctx: any, file: FileDescriptorProto, service: ServiceDe
         export interface ${importService}Twirp<T extends ${TwirpContext} = ${TwirpContext}> {
             ${joinCode(serverMethods, {on: `\n`})}
         }
-        
+
         export enum ${importService}Method {
             ${joinCode(methodEnum, {on: "\n"})}
         }
-        
+
         export const ${importService}MethodList = [${joinCode(methodList, {on: ","})}];
     `
 }
@@ -195,9 +206,9 @@ function genServer(ctx: any, file: FileDescriptorProto, service: ServiceDescript
         //==================================//
         //          Server Code             //
         //==================================//
-        
+
         ${genTwirpService(ctx, file, service)}
-    
+
         export function create${importService}Server<T extends ${TwirpContext} = ${TwirpContext}>(service: ${importService}Twirp<T>) {
             return new ${TwirpServer}<${importService}Twirp, T>({
                 service,
@@ -276,11 +287,11 @@ function genHandleRequestMethod(ctx: any, file: FileDescriptorProto, service: Se
 function genHandleJSONRequest(ctx: any, file: FileDescriptorProto, service: ServiceDescriptorProto) {
     return service.method.map(method => {
         return code`
-        
+
         async function handle${method.name}JSON<T extends ${TwirpContext} = ${TwirpContext}>(ctx: T, service: ${service.name}Twirp, data: Buffer, interceptors?: ${Interceptor}<T, ${relativeMessageName(ctx, file, method.inputType)}, ${relativeMessageName(ctx, file, method.outputType)}>[]) {
             let request: ${relativeMessageName(ctx, file, method.inputType)}
             let response: ${relativeMessageName(ctx, file, method.outputType)}
-            
+
             try {
                 const body = JSON.parse(data.toString() || "{}");
                 request = ${relativeMessageName(ctx, file, method.inputType)}.${decodeJSON(ctx, "body")};
@@ -288,7 +299,7 @@ function genHandleJSONRequest(ctx: any, file: FileDescriptorProto, service: Serv
                 const msg = "the json request could not be decoded";
                 throw new ${TwirpError}(${TwirpErrorCode}.Malformed, msg).withCause(e, true);
             }
-                
+
             if (interceptors && interceptors.length > 0) {
                 const interceptor = ${chainInterceptors}(...interceptors) as Interceptor<T, ${relativeMessageName(ctx, file, method.inputType)}, ${relativeMessageName(ctx, file, method.outputType)}>
                 response = await interceptor(ctx, request, (ctx, inputReq) => {
@@ -297,7 +308,7 @@ function genHandleJSONRequest(ctx: any, file: FileDescriptorProto, service: Serv
             } else {
                 response = await service.${method.name}(ctx, request)
             }
-            
+
             return JSON.stringify(${relativeMessageName(ctx, file, method.outputType)}.${encodeJSON(ctx,"response")} as string);
         }
     `
@@ -313,18 +324,18 @@ function genHandleJSONRequest(ctx: any, file: FileDescriptorProto, service: Serv
 function genHandleProtobufRequest(ctx: any, file: FileDescriptorProto, service: ServiceDescriptorProto) {
     return service.method.map(method => {
         return code`
-        
+
         async function handle${method.name}Protobuf<T extends ${TwirpContext} = ${TwirpContext}>(ctx: T, service: ${service.name}Twirp, data: Buffer, interceptors?: ${Interceptor}<T, ${relativeMessageName(ctx, file, method.inputType)}, ${relativeMessageName(ctx, file, method.outputType)}>[]) {
             let request: ${relativeMessageName(ctx, file, method.inputType)}
             let response: ${relativeMessageName(ctx, file, method.outputType)}
-            
+
             try {
                 request = ${relativeMessageName(ctx, file, method.inputType)}.${decodeProtobuf(ctx, "data")};
             } catch(e) {
                 const msg = "the protobuf request could not be decoded";
-                throw new ${TwirpError}(${TwirpErrorCode}.Malformed, msg).withCause(e, true);   
+                throw new ${TwirpError}(${TwirpErrorCode}.Malformed, msg).withCause(e, true);
             }
-                
+
             if (interceptors && interceptors.length > 0) {
                 const interceptor = ${chainInterceptors}(...interceptors) as Interceptor<T, ${relativeMessageName(ctx, file, method.inputType)}, ${relativeMessageName(ctx, file, method.outputType)}>
                 response = await interceptor(ctx, request, (ctx, inputReq) => {
@@ -333,7 +344,7 @@ function genHandleProtobufRequest(ctx: any, file: FileDescriptorProto, service: 
             } else {
                 response = await service.${method.name}(ctx, request)
             }
-            
+
             return Buffer.from(${relativeMessageName(ctx, file, method.outputType)}.${encodeProtobuf(ctx, "response")});
         }
     `
