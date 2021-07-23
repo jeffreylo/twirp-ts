@@ -10,8 +10,9 @@
     "url": "https://github.com/jeffreylo/twirp-ts"
   },
   "scripts": {
-    "test": "jest",
     "build": "tsc",
+    "prepublish": "npm run build",
+    "test": "jest",
     "test:coverage": "jest --coverage"
   },
   "keywords": [
